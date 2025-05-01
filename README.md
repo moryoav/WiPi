@@ -23,9 +23,9 @@ With this app you'll get a modern mobile UI that:
 ---
 
 ## 🚀 Under the hood
-
 Under the hood we reuse the Pi’s existing SSH stack: the app executes minimal, idempotent shell commands (`wpa_cli`, `systemctl status hostapd@wlan1`, etc.) so it never corrupts RaspAP’s files.
 The app saves the SSH credentials in secure device storage.
+
 ---
 
 ## Getting Started
