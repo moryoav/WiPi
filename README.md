@@ -1,4 +1,4 @@
-# RaspAP Multi-AP Companion App
+# WiPi - Unofficial RaspAP Helper App
 
 **TL;DR** – A React Native + Expo Android app that lets you add a Raspberry Pi running RaspAP, browse nearby Wi-Fi networks, and switch the Pi’s upstream connection in one tap. No SSH terminal gymnastics, no laptop required.
 
