@@ -19,10 +19,20 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.moryoav.wificonnectapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "58b393c6-466f-4179-a674-1022c6f4cd01"
+      }
+    },
+    "owner": "moryoav",
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
