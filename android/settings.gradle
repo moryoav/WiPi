@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'wifi-connect-app'
+rootProject.name = 'WiPi'
 
 dependencyResolutionManagement {
   versionCatalogs {

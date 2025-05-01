@@ -1,4 +1,4 @@
-package com.moryoav.wificonnectapp
+package com.moryoav.wipi
 
 import android.os.Build
 import android.os.Bundle
