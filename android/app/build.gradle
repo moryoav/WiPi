@@ -2,6 +2,20 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+//
+// ─── AVOID BOUNCY-CASTLE DUPLICATES ───────────────────────────────────────────
+// Drop the newer bcprov-jdk15to18 artifact entirely and force the JSch one:
+configurations.all {
+    // exclude the conflicting module
+    exclude group: 'org.bouncycastle', module: 'bcprov-jdk15to18'
+
+    resolutionStrategy {
+        // force a single version of bcprov for everything
+        force 'org.bouncycastle:bcprov-jdk15on:1.70'
+    }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
