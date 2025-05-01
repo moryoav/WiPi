@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "wifi-connect-app",
+    "name": "WiPi",
     "slug": "wifi-connect-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,7 +20,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.moryoav.wificonnectapp"
+      "package": "com.moryoav.wipi"
     },
     "web": {
       "favicon": "./assets/favicon.png"
