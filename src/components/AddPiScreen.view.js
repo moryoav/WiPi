@@ -15,18 +15,20 @@ import {
 import { Ionicons } from '@expo/vector-icons'; // eye / eye-off icons
 
 /**
- * Modern-UI “Add Pi” form with SHOW-PASSWORD toggle
+ * Modern-UI “Add Pi” form with SHOW-PASSWORD toggle + optional API Key
  */
 export default function AddPiScreenView({
   name,
   host,
   username,
   password,
+  apiKey,                       // ADD
   saving,
   onChangeName,
   onChangeHost,
   onChangeUsername,
   onChangePassword,
+  onChangeApiKey,               // ADD
   onSave,
 }) {
   /* local state for eye toggle */
@@ -94,6 +96,16 @@ export default function AddPiScreenView({
             </View>
           </View>
 
+          {/* NEW – optional API key */}
+          <Field                                           /* ADD block */
+            label="RaspAp API Key (optional)"
+            placeholder="Paste API Key…"
+            value={apiKey}
+            onChangeText={onChangeApiKey}
+            editable={!saving}
+            autoCapitalize="none"
+          />
+
           {/* Save button */}
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -144,16 +156,9 @@ const styles = StyleSheet.create({
   },
 
   /* password row */
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  passwordInput: {
-    flex: 1,
-  },
-  eyeBtn: {
-    paddingHorizontal: 10,
-  },
+  passwordRow: { flexDirection: 'row', alignItems: 'center' },
+  passwordInput: { flex: 1 },
+  eyeBtn: { paddingHorizontal: 10 },
 
   /* button */
   saveBtn: {

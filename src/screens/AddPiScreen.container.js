@@ -11,6 +11,7 @@ export default function AddPiScreenContainer({ navigation, route }) {
   const [host, setHost]         = useState(editingPi?.host ?? '');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [apiKey, setApiKey]     = useState('');               // ADD
   const [saving, setSaving]     = useState(false);
 
   /* load creds when editing so fields are filled */
@@ -21,12 +22,13 @@ export default function AddPiScreenContainer({ navigation, route }) {
       const creds = await getPiCreds(editingPi.id);
       setUsername(creds.username ?? '');
       setPassword(creds.password ?? '');
+      setApiKey(creds.apiKey ?? '');                           // ADD
     })();
   }, [editingPi]);
 
   const onSave = async () => {
     if (!name.trim() || !host.trim() || !username.trim() || !password) {
-      Alert.alert('Validation error', 'All fields are required.');
+      Alert.alert('Validation error', 'All fields except API Key are required.');
       return;
     }
     setSaving(true);
@@ -38,6 +40,7 @@ export default function AddPiScreenContainer({ navigation, route }) {
           host: host.trim(),
           username: username.trim(),
           password,
+          apiKey: apiKey.trim(),                               // ADD
         });
       } else {
         await addPi({
@@ -45,6 +48,7 @@ export default function AddPiScreenContainer({ navigation, route }) {
           host: host.trim(),
           username: username.trim(),
           password,
+          apiKey: apiKey.trim(),                               // ADD
         });
       }
       navigation.goBack();
@@ -61,11 +65,13 @@ export default function AddPiScreenContainer({ navigation, route }) {
       host={host}
       username={username}
       password={password}
+      apiKey={apiKey}                     /* ADD */
       saving={saving}
       onChangeName={setName}
       onChangeHost={setHost}
       onChangeUsername={setUsername}
       onChangePassword={setPassword}
+      onChangeApiKey={setApiKey}          /* ADD */
       onSave={onSave}
     />
   );
