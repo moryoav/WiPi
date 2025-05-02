@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.moryoav.wipi"
+      "package": "com.moryoav.wipi",
+	  "cleartextTrafficPermitted": true 
     },
     "web": {
       "favicon": "./assets/favicon.png"
