@@ -1,74 +1,50 @@
 // src/screens/PiDashboardScreen.container.js
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { Pressable, View, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { runSSH } from '../lib/sshClient';
+import React, { useState } from 'react';
+// ★ REMOVED: useEffect/useCallback  – not needed for this file now
+import { View } from 'react-native';
 
 import PiDashboardScreenView from '../components/PiDashboardScreen.view';
-import { useNetworks } from '../hooks/useNetworks';
+import { useNetworks }        from '../hooks/useNetworks';
 
 export default function PiDashboardScreenContainer({ navigation, route }) {
   const { id, hostname, host } = route.params;
 
   const {
-	initializing,  
-    creds,        // null until loaded
+    initialLoading,   // ★ ADDED – new flag from hook
+    creds,            // (still exposed, might be useful later)
     curr,
     known,
     scan,
-    scanning,     // whether a scan is in progress
+    scanning,
     refresh,
-    scanNetworks, // function to trigger a scan
+    scanNetworks,
     connect,
     forget,
     connectNew,
   } = useNetworks(id, host);
 
-  //const credsLoaded = creds !== null;
-
-  // Local modal state
+  /* local modal state */
   const [modalVisible, setModalVisible] = useState(false);
   const [modalSsid, setModalSsid]       = useState('');
-  const [modalPsk, setModalPsk]         = useState('');
-
+  const [modalPsk,  setModalPsk]        = useState('');
   const [connectingId, setConnectingId] = useState(null);
 
-  const handleConnect = async (id) => {
-    setConnectingId(id);          // show loader for this network
-    try {
-      await connect(id);          // run the existing hook function
-    } finally {
-      setConnectingId(null);      // hide loader when done
-    }
+  const handleConnect = async (netId) => {
+    setConnectingId(netId);
+    try { await connect(netId); }
+    finally { setConnectingId(null); }
   };
-
-  const showModal = (ssid) => {
-    setModalSsid(ssid);
-    setModalPsk('');
-    setModalVisible(true);
-  };
-  const hideModal = () => setModalVisible(false);
-
-  // Show full-screen loader until credentials are loaded
-  if (initializing) {
-    console.log('Showing loader - creds not loaded yet');
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
 
   return (
+    /* we no longer hide the whole screen – instead pass a loading flag */
     <PiDashboardScreenView
+      initialLoading={initialLoading}     // ★ ADDED
       hostname={hostname}
       curr={curr}
       known={known}
       scan={scan}
       scanning={scanning}
-	  connectingId={connectingId}
+      connectingId={connectingId}
       modalVisible={modalVisible}
       modalSsid={modalSsid}
       modalPsk={modalPsk}
@@ -76,8 +52,8 @@ export default function PiDashboardScreenContainer({ navigation, route }) {
       onConnect={handleConnect}
       onForget={forget}
       onConnectNew={connectNew}
-      showModal={showModal}
-      hideModal={hideModal}
+      showModal={(ssid) => { setModalSsid(ssid); setModalPsk(''); setModalVisible(true); }}
+      hideModal={() => setModalVisible(false)}
       onChangeModalPsk={setModalPsk}
     />
   );
