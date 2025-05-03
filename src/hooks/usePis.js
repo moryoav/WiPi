@@ -21,7 +21,6 @@ export function usePis(pollIntervalMs = 3000) {
     refresh(); // first load
   }, [refresh]);
 
-  // reload when screen regains focus (safe: not async return)
   useFocusEffect(
     useCallback(() => {
       refresh();
@@ -30,22 +29,21 @@ export function usePis(pollIntervalMs = 3000) {
 
   /* ---------- Probe reachability ---------- */
   const probeReachability = useCallback(() => {
-    pis.forEach((pi) => {
+    pis.forEach(pi => {
       let connected = false;
-
       const socket = TcpSocket.createConnection(
         { host: pi.host, port: 22, timeout: 2000 },
         () => {
           connected = true;
           socket.destroy();
-          setReachable((prev) => ({ ...prev, [pi.id]: true }));
+          setReachable(prev => ({ ...prev, [pi.id]: true }));
         }
       );
 
       const markDown = () => {
-        if (connected) return; // ignore errors after success
+        if (connected) return;
         socket.destroy();
-        setReachable((prev) => ({ ...prev, [pi.id]: false }));
+        setReachable(prev => ({ ...prev, [pi.id]: false }));
       };
 
       socket.on('error', markDown);
@@ -53,7 +51,7 @@ export function usePis(pollIntervalMs = 3000) {
     });
   }, [pis]);
 
-  /* ---------- Timer management ---------- */
+  /* ---------- Timer & AppState management ---------- */
   useEffect(() => {
     const start = () => {
       probeReachability();
@@ -63,13 +61,19 @@ export function usePis(pollIntervalMs = 3000) {
 
     start();
 
-    const onAppState = (next) => {
-      if (appState.current.match(/inactive|background/) && next === 'active') start();
-      else if (next.match(/inactive|background/)) stop();
+    const onAppStateChange = next => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        next === 'active'
+      ) {
+        start();
+      } else if (next.match(/inactive|background/)) {
+        stop();
+      }
       appState.current = next;
     };
 
-    const sub = AppState.addEventListener('change', onAppState);
+    const sub = AppState.addEventListener('change', onAppStateChange);
 
     return () => {
       stop();
