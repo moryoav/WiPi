@@ -32,7 +32,9 @@
     },
     "owner": "moryoav",
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+	  "./expo-plugin-cleartext.js",
+      "./expo-plugin-bouncycastle"
     ]
   }
 }
