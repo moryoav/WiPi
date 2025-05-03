@@ -1,14 +1,17 @@
+// src/hooks/usePiInfo.js
 import { useState, useEffect, useCallback } from 'react';
-import { getPiCreds }      from '../lib/storage';
-import { runSSH }          from '../lib/sshClient';
+import { getPiCreds } from '../lib/storage';
+import { runSSH } from '../lib/sshClient';
 
 export function usePiInfo(piId, host) {
-  const [creds, setCreds]         = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
-  const [leases, setLeases]       = useState([]);
-  const [aps, setAps]             = useState([]);
-  const [devices, setDevices]     = useState([]);
+  const [creds, setCreds] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingAps, setLoadingAps] = useState(false);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [error, setError] = useState(null);
+  const [leases, setLeases] = useState([]);
+  const [aps, setAps] = useState([]);
+  const [devices, setDevices] = useState([]);
   const [debugLogs, setDebugLogs] = useState([]);
 
   const log = useCallback(msg => {
@@ -21,7 +24,7 @@ export function usePiInfo(piId, host) {
       log('🔑 Loading SSH credentials…');
       try {
         const c = await getPiCreds(piId);
-        log(`✔️  Creds loaded`);
+        log('✔️  Creds loaded');
         setCreds({ host, ...c });
       } catch (e) {
         log(`❌ Error loading creds: ${e.message}`);
@@ -33,11 +36,11 @@ export function usePiInfo(piId, host) {
 
   // 2️⃣ SSH helper
   const runCmd = useCallback(
-    async (cmd) => {
+    async cmd => {
       if (!creds) throw new Error('SSH credentials not ready');
       log(`➡️ ${cmd}`);
       const safe = cmd.replace(/"/g, '\\"');
-      const out  = await runSSH({
+      const out = await runSSH({
         ...creds,
         command: `bash -lc "${safe}"`,
       });
@@ -53,6 +56,8 @@ export function usePiInfo(piId, host) {
 
     (async () => {
       setLoading(true);
+      setLoadingAps(true);
+      setLoadingDevices(false);
       log('🚀 Starting fetch…');
 
       try {
@@ -63,9 +68,7 @@ export function usePiInfo(piId, host) {
           `${iw} dev | awk '/Interface/ {print $2}' 2>&1`
         );
         const rawIfaces = listOut.split('\n').filter(Boolean);
-        const ifaces = rawIfaces.map(l =>
-          l.trim().replace(/^Interface\s+/i, '')
-        );
+        const ifaces = rawIfaces.map(l => l.trim().replace(/^Interface\s+/i, ''));
         log(`👀 Interfaces: ${JSON.stringify(ifaces)}`);
 
         // leases
@@ -80,10 +83,10 @@ export function usePiInfo(piId, host) {
         log(`🏷️ Leases: ${JSON.stringify(parsedLeases)}`);
         setLeases(parsedLeases);
 
-        // for each iface
+        // gather AP info
         const apList = [];
         const infoMap = {};
-        const stMap   = {};
+        const stMap = {};
 
         for (const iface of ifaces) {
           const infoText = await runCmd(
@@ -100,48 +103,51 @@ export function usePiInfo(piId, host) {
           }
         }
 
-        // parse APs: ssid + channel
+        // parse APs
         const parsedAps = apList.map(iface => {
-          const info = infoMap[iface];
-          const ssidM   = info.match(/^\s*ssid\s+(.+)$/m);
-          const chanM   = info.match(/channel\s+(\d+)/);
+          const info = infoMap[iface] || '';
+          const ssidM = info.match(/^\s*ssid\s+(.+)$/m);
+          const chanM = info.match(/channel\s+(\d+)/);
           return {
             iface,
-            ssid:    ssidM ? ssidM[1] : '',
+            ssid: ssidM ? ssidM[1] : '',
             channel: chanM ? chanM[1] : '',
           };
         });
         log(`📦 APs: ${JSON.stringify(parsedAps)}`);
         setAps(parsedAps);
+        setLoadingAps(false);
 
-        // parse devices: mac, hostname, lastAck, connectedSeconds
+        // 4️⃣ devices
+        setLoadingDevices(true);
         const parsedDevices = [];
         for (const iface of apList) {
-          const text = stMap[iface] || '';
+          const text = (stMap[iface] || '').trim();
           const blocks = text
-            .trim()
             .split(/\nStation /)
             .map((b, i) => (i === 0 ? b : 'Station ' + b));
 
           for (const b of blocks) {
-            const macM  = b.match(/^Station\s+([0-9A-F:]+)/i);
+            const macM = b.match(/^Station\s+([0-9A-F:]+)/i);
             if (!macM) continue;
-            const ackM  = b.match(/last ack signal:\s*([-\d]+)/i);
-            const conM  = b.match(/connected time:\s*(\d+)/i);
+            const ackM = b.match(/last ack signal:\s*([-\d]+)/i);
+            const conM = b.match(/connected time:\s*(\d+)/i);
             const mac = macM[1];
-            const lease = parsedLeases.find(l => l.mac.toLowerCase() === mac.toLowerCase());
+            const lease = parsedLeases.find(
+              l => l.mac.toLowerCase() === mac.toLowerCase()
+            );
             parsedDevices.push({
               iface,
               mac,
-              hostname:       lease?.hostname || '',
-              lastAck:        ackM  ? `${ackM[1]} dBm` : '',
+              hostname: lease?.hostname || '',
+              lastAck: ackM ? `${ackM[1]} dBm` : '',
               connectedSeconds: conM ? parseInt(conM[1], 10) : null,
             });
           }
         }
         log(`📦 Devices: ${JSON.stringify(parsedDevices)}`);
         setDevices(parsedDevices);
-
+        setLoadingDevices(false);
       } catch (e) {
         log(`❌ Fetch error: ${e.message}`);
         setError(e);
@@ -152,5 +158,14 @@ export function usePiInfo(piId, host) {
     })();
   }, [creds, runCmd, log]);
 
-  return { loading, error, aps, devices, debugLogs };
+  return {
+    loading,
+    loadingAps,
+    loadingDevices,
+    error,
+    leases,
+    aps,
+    devices,
+    debugLogs,
+  };
 }
