@@ -34,7 +34,8 @@
     "plugins": [
       "expo-secure-store",
       "./expo-plugin-cleartext.js",
-      "./expo-plugin-bouncycastle"
+      "./expo-plugin-bouncycastle",
+	  "./expo-plugin-abi.js",
 
     ]
   }

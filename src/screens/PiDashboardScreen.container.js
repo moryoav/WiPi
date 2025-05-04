@@ -40,6 +40,7 @@ export default function PiDashboardScreenContainer({ navigation, route }) {
     <PiDashboardScreenView
       initialLoading={initialLoading}     // ★ ADDED
       hostname={hostname}
+	  host={host}
       curr={curr}
       known={known}
       scan={scan}

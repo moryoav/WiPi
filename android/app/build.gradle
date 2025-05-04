@@ -80,6 +80,7 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+def enableSeparateBuildPerCPUArchitecture = true
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -94,6 +95,16 @@ android {
         versionCode 1
         versionName "1.1.0"
     }
+
+    splits {
+        abi {
+            reset()
+            enable enableSeparateBuildPerCPUArchitecture
+            include "arm64-v8a"
+            universalApk false
+        }
+    }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

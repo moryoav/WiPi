@@ -1,5 +1,6 @@
 // src/components/PiDashboardScreen.view.js
-import React from 'react';
+
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,11 +12,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { runSpeedTest } from '../lib/speedtestHelper';
 
 export default function PiDashboardScreenView({
   /* ----- props ----- */
   initialLoading,            // spinner overlay until first scan finishes
   hostname,
+  host,                      // SSH host for speedtestHelper
   curr,
   known = [],
   scan  = [],
@@ -32,6 +35,22 @@ export default function PiDashboardScreenView({
   hideModal,
   onChangeModalPsk,
 }) {
+  /* ───────── speed-test state & handler ───────── */
+  const [speedLoading, setSpeedLoading] = useState(false);
+  const [speedResults, setSpeedResults] = useState(null);
+
+  const handleSpeedTest = async () => {
+    setSpeedLoading(true);
+    try {
+      const results = await runSpeedTest(host);
+      setSpeedResults(results);
+    } catch (e) {
+      console.error('SpeedTest error', e);
+    } finally {
+      setSpeedLoading(false);
+    }
+  };
+
   /* ───────── helpers ───────── */
   const getWifiIconName = (signal) => {
     if (typeof signal !== 'number' || isNaN(signal)) return 'wifi-strength-off';
@@ -104,21 +123,83 @@ export default function PiDashboardScreenView({
   );
 
   /* ───────── dynamic section list ───────── */
-  const sections = [];                 // ★ ADDED – build only when cards exist
+  const sections = [];
   if (known.length > 0)
-    sections.push({ title: 'Known networks', data: known, renderItem: KnownItem });
+    sections.push({ title: 'Known networks',   data: known, renderItem: KnownItem });
   if (scan.length > 0)
     sections.push({ title: 'Nearby networks', data: scan,  renderItem: ScanItem });
 
   return (
     <View style={styles.container}>
       {/* ── Current connection (only if card exists) ── */}
-      {curr?.ssid && (                                          /* ★ ADDED guard */
+      {curr?.ssid && (
         <View style={styles.header}>
           <Text style={styles.sectionHeader}>Current connection</Text>
-          <View style={[styles.card, styles.cardCurrentBorder]}>
-            <MaterialCommunityIcons name="wifi" size={24} color="#4caf50" style={styles.rowIcon} />
-            <Text style={styles.rowTitle}>{curr.ssid}</Text>
+
+          <View style={[styles.card, styles.cardCurrentBorder, styles.cardColumn]}>
+            {/* original row, unchanged layout */}
+            <View style={styles.currentRow}>
+              <MaterialCommunityIcons
+                name="wifi"
+                size={24}
+                color="#4caf50"
+                style={styles.rowIcon}
+              />
+              <Text style={styles.rowTitle}>{curr.ssid}</Text>
+
+              <Pressable
+                style={({ pressed }) => [styles.speedBtn, pressed && styles.speedBtnPressed]}
+                onPress={handleSpeedTest}
+                disabled={speedLoading}
+              >
+                {speedLoading
+                  ? <ActivityIndicator size="small" color="#0077ff" />
+                  : <MaterialCommunityIcons name="speedometer" size={32} color="#0077ff" />
+                }
+              </Pressable>
+            </View>
+
+            {/* new: speed test results */}
+            {speedResults && (
+              <View style={styles.speedRow}>
+                <View style={styles.speedCol}>
+                  <MaterialCommunityIcons
+                    name="download"
+                    size={24}
+                    color="#212121"
+                    style={styles.speedIcon}
+                  />
+                  <Text style={styles.speedValue}>
+                    {speedResults.download.toFixed(1)} Mbps
+                  </Text>
+                  <Text style={styles.speedLabel}>Download</Text>
+                </View>
+                <View style={styles.speedCol}>
+                  <MaterialCommunityIcons
+                    name="upload"
+                    size={24}
+                    color="#212121"
+                    style={styles.speedIcon}
+                  />
+                  <Text style={styles.speedValue}>
+                    {speedResults.upload.toFixed(1)} Mbps
+                  </Text>
+                  <Text style={styles.speedLabel}>Upload</Text>
+                </View>
+                <View style={styles.speedCol}>
+                  <MaterialCommunityIcons
+                    name="timer"
+                    size={24}
+                    color="#212121"
+                    style={styles.speedIcon}
+                  />
+                  <Text style={styles.speedValue}>
+                    {speedResults.ping.toFixed(0)} ms
+                  </Text>
+                  <Text style={styles.speedLabel}>Ping</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       )}
@@ -221,6 +302,25 @@ const styles = StyleSheet.create({
   cardPressed:      { transform: [{ scale: 0.98 }] },
   cardCurrentBorder:{ borderLeftWidth: 4, borderLeftColor: '#4caf50' },
 
+  /* override for current-connection card to allow two rows */
+  cardColumn:       { flexDirection: 'column', alignItems: 'flex-start' },
+
+  /* wrapper row inside current-connection card */
+  currentRow:       { flexDirection: 'row', alignItems: 'center', width: '100%' },
+  rowIcon:          { marginRight: 10 },
+  rowTitle:         { fontSize: 16, fontWeight: '500', color: '#212121' },
+
+  /* speed button */
+  speedBtn:         { marginLeft: 'auto', padding: 8 },
+  speedBtnPressed:  { opacity: 0.6 },
+
+  /* speed results row */
+  speedRow:         { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, width: '100%' },
+  speedCol:         { flex: 1, alignItems: 'center' },
+  speedIcon:        { marginBottom: 4 },
+  speedValue:       { fontSize: 16, fontWeight: '600', color: '#212121' },
+  speedLabel:       { fontSize: 12, color: '#666', marginTop: 2 },
+
   /* signal column */
   signalCol: { width: 50, alignItems: 'center', marginRight: 12 },
   signalDb:  { marginTop: 4, fontSize: 12, color: '#666' },
@@ -230,8 +330,6 @@ const styles = StyleSheet.create({
   rowRight:  { flexDirection: 'row', alignItems: 'center' },
   linkBtn:   { marginRight: 12 }, linkBtnPressed:{ opacity: 0.6 },
   linkBlue:  { color: '#0077ff', fontWeight: '600' },
-  rowIcon:   { marginRight: 10 },
-  rowTitle:  { fontSize: 16, fontWeight: '500', color: '#212121' },
 
   /* FAB */
   fab: {
@@ -244,7 +342,7 @@ const styles = StyleSheet.create({
   fabPressed: { opacity: 0.8, transform: [{ scale: 0.96 }] },
 
   /* first-scan overlay */
-  loadingOverlay: {                    // ★ ADDED
+  loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
