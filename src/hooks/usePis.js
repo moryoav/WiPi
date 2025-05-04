@@ -2,9 +2,32 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppState } from 'react-native';
-import TcpSocket from 'react-native-tcp-socket';
 import { loadPis } from '../lib/storage';
 
+// Timeout for dashboard reachability check (in milliseconds)
+const DASHBOARD_TIMEOUT = 3000;
+
+/**
+ * Performs a simple HTTP GET to the Pi's RaspAP admin dashboard on port 80
+ * and returns true if the response is in the 2xx range.
+ */
+async function checkDashboard(host) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DASHBOARD_TIMEOUT);
+
+    const response = await fetch(`http://${host}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Hook to load the user's Pis and periodically probe their reachability
+ * via HTTP checks against the RaspAP dashboard on port 80.
+ */
 export function usePis(pollIntervalMs = 3000) {
   const [pis, setPis] = useState([]);
   const [reachable, setReachable] = useState({});
@@ -18,7 +41,7 @@ export function usePis(pollIntervalMs = 3000) {
   }, []);
 
   useEffect(() => {
-    refresh(); // first load
+    refresh(); // initial load
   }, [refresh]);
 
   useFocusEffect(
@@ -27,27 +50,21 @@ export function usePis(pollIntervalMs = 3000) {
     }, [refresh])
   );
 
-  /* ---------- Probe reachability ---------- */
-  const probeReachability = useCallback(() => {
-    pis.forEach(pi => {
-      let connected = false;
-      const socket = TcpSocket.createConnection(
-        { host: pi.host, port: 22, timeout: 2000 },
-        () => {
-          connected = true;
-          socket.destroy();
-          setReachable(prev => ({ ...prev, [pi.id]: true }));
-        }
-      );
+  /* ---------- Probe reachability via HTTP ---------- */
+  const probeReachability = useCallback(async () => {
+    const results = await Promise.all(
+      pis.map(async (pi) => {
+        const ok = await checkDashboard(pi.host);
+        return { id: pi.id, ok };
+      })
+    );
 
-      const markDown = () => {
-        if (connected) return;
-        socket.destroy();
-        setReachable(prev => ({ ...prev, [pi.id]: false }));
-      };
-
-      socket.on('error', markDown);
-      socket.on('timeout', markDown);
+    setReachable(prev => {
+      const next = { ...prev };
+      results.forEach(({ id, ok }) => {
+        next[id] = ok;
+      });
+      return next;
     });
   }, [pis]);
 
@@ -61,23 +78,20 @@ export function usePis(pollIntervalMs = 3000) {
 
     start();
 
-    const onAppStateChange = next => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        next === 'active'
-      ) {
+    const onAppStateChange = nextState => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
         start();
-      } else if (next.match(/inactive|background/)) {
+      } else if (nextState.match(/inactive|background/)) {
         stop();
       }
-      appState.current = next;
+      appState.current = nextState;
     };
 
-    const sub = AppState.addEventListener('change', onAppStateChange);
+    const subscription = AppState.addEventListener('change', onAppStateChange);
 
     return () => {
       stop();
-      sub.remove();
+      subscription.remove();
     };
   }, [probeReachability, pollIntervalMs]);
 

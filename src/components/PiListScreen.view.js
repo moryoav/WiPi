@@ -9,7 +9,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import PiDetails from '../components/PiDetails';
 
 /* ─── Gauge & Status widgets ────────────────────────────────────────── */
@@ -105,7 +105,7 @@ export default function PiListScreenView({
     ]);
 
   const renderItem = ({ item }) => {
-    const isUp = reachable[item.id];
+    const isUp = reachable[item.id] === true;
     const sys = systemInfo[item.id];
     const hist = locHistory[item.id] || [];
     const curr = curLoc[item.id];
@@ -145,10 +145,10 @@ export default function PiListScreenView({
           </View>
           <View style={styles.actionCol}>
             <Pressable hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.7 }} onPress={() => onEdit(item)}>
-              <MaterialIcons name="edit" size={28} color="#4caf50" />
+              <MaterialCommunityIcons name="note-edit-outline" size={28} color="#4caf50" />
             </Pressable>
             <Pressable hitSlop={12} style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]} onPress={() => confirmDelete(item)}>
-              <MaterialIcons name="delete" size={32} color="#f44336" />
+              <MaterialCommunityIcons name="trash-can-outline" size={32} color="#f44336" />
             </Pressable>
           </View>
         </View>

@@ -59,7 +59,7 @@ export default function PiDashboardScreenView({
     if (s >= -60) return 'wifi-strength-3';
     if (s >= -70) return 'wifi-strength-2';
     if (s >= -80) return 'wifi-strength-1';
-    return 'wifi-strength-off';
+    return 'wifi-strength-alert-outline';
   };
 
   /* ───────── row components ───────── */
@@ -67,7 +67,6 @@ export default function PiDashboardScreenView({
     const isCurrent = item.selected;
     return (
       <View style={[styles.card, isCurrent && styles.cardCurrentBorder]}>
-        {/* signal */}
         <View style={styles.signalCol}>
           {item.signal != null ? (
             <MaterialCommunityIcons
@@ -80,11 +79,9 @@ export default function PiDashboardScreenView({
           )}
           {item.signal != null && <Text style={styles.signalDb}>{item.signal} dB</Text>}
         </View>
-
         <View style={styles.infoCol}>
           <Text style={styles.rowTitle}>{item.ssid || '(hidden)'}</Text>
         </View>
-
         <View style={styles.rowRight}>
           {!isCurrent && (
             <Pressable
@@ -146,7 +143,6 @@ export default function PiDashboardScreenView({
                 style={styles.rowIcon}
               />
               <Text style={styles.rowTitle}>{curr.ssid}</Text>
-
               <Pressable
                 style={({ pressed }) => [styles.speedBtn, pressed && styles.speedBtnPressed]}
                 onPress={handleSpeedTest}
@@ -159,47 +155,102 @@ export default function PiDashboardScreenView({
               </Pressable>
             </View>
 
-            {/* new: speed test results */}
-            {speedResults && (
-              <View style={styles.speedRow}>
-                <View style={styles.speedCol}>
-                  <MaterialCommunityIcons
-                    name="download"
-                    size={24}
-                    color="#212121"
-                    style={styles.speedIcon}
-                  />
-                  <Text style={styles.speedValue}>
-                    {speedResults.download.toFixed(1)} Mbps
-                  </Text>
-                  <Text style={styles.speedLabel}>Download</Text>
-                </View>
-                <View style={styles.speedCol}>
-                  <MaterialCommunityIcons
-                    name="upload"
-                    size={24}
-                    color="#212121"
-                    style={styles.speedIcon}
-                  />
-                  <Text style={styles.speedValue}>
-                    {speedResults.upload.toFixed(1)} Mbps
-                  </Text>
-                  <Text style={styles.speedLabel}>Upload</Text>
-                </View>
-                <View style={styles.speedCol}>
-                  <MaterialCommunityIcons
-                    name="timer"
-                    size={24}
-                    color="#212121"
-                    style={styles.speedIcon}
-                  />
-                  <Text style={styles.speedValue}>
-                    {speedResults.ping.toFixed(0)} ms
-                  </Text>
-                  <Text style={styles.speedLabel}>Ping</Text>
-                </View>
-              </View>
-            )}
+            {/* new: speed test results + gauge */}
+            {speedResults && (() => {
+              const rawMax = Math.ceil((speedResults.download * 1.1) / 10) * 10;
+              const gaugeMax = Math.max(rawMax, 25);
+              const seg1 = 4;
+              const seg2 = 4;
+              const seg3 = 17;             // 25 − (4+4)
+              const seg4 = gaugeMax - 25;  // may be zero
+              const indicatorPercent = (speedResults.download / gaugeMax) * 100;
+
+              return (
+                <>
+                  <View style={styles.speedRow}>
+                    <View style={styles.speedCol}>
+                      <MaterialCommunityIcons
+                        name="download"
+                        size={24}
+                        color="#212121"
+                        style={styles.speedIcon}
+                      />
+                      <Text style={styles.speedValue}>
+                        {speedResults.download.toFixed(1)} Mbps
+                      </Text>
+                      <Text style={styles.speedLabel}>Download</Text>
+                    </View>
+                    <View style={styles.speedCol}>
+                      <MaterialCommunityIcons
+                        name="upload"
+                        size={24}
+                        color="#212121"
+                        style={styles.speedIcon}
+                      />
+                      <Text style={styles.speedValue}>
+                        {speedResults.upload.toFixed(1)} Mbps
+                      </Text>
+                      <Text style={styles.speedLabel}>Upload</Text>
+                    </View>
+                    <View style={styles.speedCol}>
+                      <MaterialCommunityIcons
+                        name="timer"
+                        size={24}
+                        color="#212121"
+                        style={styles.speedIcon}
+                      />
+                      <Text style={styles.speedValue}>
+                        {speedResults.ping.toFixed(0)} ms
+                      </Text>
+                      <Text style={styles.speedLabel}>Ping</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.speedGaugeContainer}>
+                    <View style={styles.speedGaugeBar}>
+                      {/* 0–4 Mbps (red) */}
+                      <View
+                        style={[
+                          styles.speedGaugeSegment,
+                          { flex: seg1, backgroundColor: '#f44336' },
+                        ]}
+                      />
+                      {/* 4–8 Mbps (orange) */}
+                      <View
+                        style={[
+                          styles.speedGaugeSegment,
+                          { flex: seg2, backgroundColor: '#ff9800' },
+                        ]}
+                      />
+                      {/* 8–25 Mbps (yellow) */}
+                      <View
+                        style={[
+                          styles.speedGaugeSegment,
+                          { flex: seg3, backgroundColor: '#ffeb3b' },
+                        ]}
+                      />
+                      {/* 25+ Mbps (green) */}
+                      {seg4 > 0 && (
+                        <View
+                          style={[
+                            styles.speedGaugeSegment,
+                            { flex: seg4, backgroundColor: '#4caf50' },
+                          ]}
+                        />
+                      )}
+                      <View
+                        style={[
+                          styles.speedGaugeIndicator,
+                          {
+                            left: `${indicatorPercent}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                </>
+              );
+            })()}
           </View>
         </View>
       )}
@@ -277,7 +328,6 @@ export default function PiDashboardScreenView({
   );
 }
 
-/* ───────── styles ───────── */
 const CARD_RADIUS = 12;
 
 const styles = StyleSheet.create({
@@ -297,7 +347,8 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     padding: 14,
     elevation: 1,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2,
+    shadowColor: '#000', shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 }, shadowRadius: 2,
   },
   cardPressed:      { transform: [{ scale: 0.98 }] },
   cardCurrentBorder:{ borderLeftWidth: 4, borderLeftColor: '#4caf50' },
@@ -320,6 +371,30 @@ const styles = StyleSheet.create({
   speedIcon:        { marginBottom: 4 },
   speedValue:       { fontSize: 16, fontWeight: '600', color: '#212121' },
   speedLabel:       { fontSize: 12, color: '#666', marginTop: 2 },
+
+  /* speed gauge styles */
+  speedGaugeContainer: {
+    width: '100%',
+    marginTop: 8,
+  },
+  speedGaugeBar: {
+    flexDirection: 'row',
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    
+    position: 'relative',
+  },
+  speedGaugeSegment: {
+    height: '100%',
+  },
+  speedGaugeIndicator: {
+    position: 'absolute',
+    width: 3,
+    height: 13,        // make it protrude slightly
+    backgroundColor: '#212121',
+    top: -3,            // lift above the bar
+  },
 
   /* signal column */
   signalCol: { width: 50, alignItems: 'center', marginRight: 12 },
