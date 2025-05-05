@@ -2,6 +2,13 @@
 
 **TL;DR** – A React Native + Expo Android app that lets you add a Raspberry Pi running RaspAP, browse nearby Wi-Fi networks, and switch the Pi’s upstream connection in one tap. No SSH terminal gymnastics, no laptop required.
 
+<table>
+  <tr>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/f8ac0259-b7a6-4b5c-badc-0f7a933ef79b" alt="…” style="width:80%" /></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/ea38e11c-6332-482a-b4e8-eb1f487fda41" alt="…” style="width:80%" /></td>
+  </tr>
+</table>
+
 ---
 
 ## ✨ Motivation
@@ -14,11 +21,12 @@ Running **RaspAP** is brilliant for traveling — but changing the Pi’s **upst
 
 With this app you'll get a modern mobile UI that:
 
-* discovers or adds a Pi by hostname/IP,
+* discovers or adds a Pi by IP,
 * lists visible networks with signal + security details,
 * connects / disconnects with a single press,
 * shows real-time status of each AP interface,
 * works even when the Pi has no Internet access.
+* Can perform a speedtest on the chosen wifi network.
 
 ---
 
@@ -29,9 +37,13 @@ The app saves the SSH credentials in secure device storage.
 ---
 
 ## Getting Started
-install React Native Expo
-Clone the project 
-expo start
+* install React Native Expo
+* Clone the project 
+* expo start
+
+or -
+  
+Download the APK and install it from the <a href="https://github.com/moryoav/WiPi/releases">releases page</a>
 
 ---
 ### Minimum Requirements
