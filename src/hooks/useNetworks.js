@@ -40,57 +40,43 @@ export function useNetworks(piId, host) {
   const [scan, setScan]         = useState([]);
   const [scanning, setScanning] = useState(false);
 
-  const [initialScanDone, setInitialScanDone] = useState(false); // ★ ADDED
-  const initialLoadStarted = useRef(false);                       // ★ ADDED
-
+  const [initialScanDone, setInitialScanDone] = useState(false);
+  const initialLoadStarted = useRef(false);
   const knownRef = useRef([]);
-
-  /* keep latest known list in a ref */
   useEffect(() => { knownRef.current = known; }, [known]);
 
-  /* 1) Load SSH credentials and detect client interface */
+  /* 1) Load SSH creds & detect client interface */
   useEffect(() => {
     (async () => {
       try {
         const c = await getPiCreds(piId);
         setCreds({ host, ...c });
 
-        const out = await runSSH({
+        const rawIfaceOut = await runSSH({
           host,
           ...c,
           command: `bash -lc "iw dev | awk '/Interface/ {print $2}'"`
         });
-
-        const chosen = (out.trim().split('\n')[0] || '')
-                         .replace(/^Interface\s+/i, '').trim();
-        setIface(chosen);
+        //console.log('useNetworks: raw iface output:', rawIfaceOut);
+        const ifaceRaw = rawIfaceOut.trim().split('\n')[0] || '';
+        const ifaceClean = ifaceRaw.replace(/^\s*Interface\s+/, '').trim();
+        //console.log('useNetworks: detected client iface:', ifaceClean);
+        setIface(ifaceClean);
       } catch (err) {
         console.warn('Failed to load creds or detect iface:', err);
       }
     })();
   }, [piId, host]);
 
-  /* 2) Utility: run multiple commands in one SSH session */
+  /* 2) run multiple commands in one SSH session */
   const runPipeline = useCallback(
     async (cmds) => {
       if (!creds) throw new Error('SSH credentials not ready');
-      const pipeline = cmds.join(' && ');
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          return await runSSH({ ...creds, command: `bash -lc "${pipeline}"` });
-        } catch (err) {
-          if (attempt === 1 && /Connection reset/.test(err.message)) {
-            await new Promise((r) => setTimeout(r, 3000));
-            continue;                       // retry once
-          }
-          throw err;
-        }
-      }
-    },
-    [creds]
+      return await runSSH({ ...creds, command: `bash -lc "${cmds.join(' && ')}"` });
+    }, [creds]
   );
 
-  /* 3) Refresh "current" + "known" */
+  /* 3) Refresh current + known */
   const refresh = useCallback(async () => {
     if (!creds || !iface) return;
     try {
@@ -109,47 +95,88 @@ export function useNetworks(piId, host) {
     }
   }, [creds, iface, runPipeline]);
 
-  /* 4) Scan for ALL networks (adds RSSI & creates "scan" list) */
+  /* 4) Scan networks & exclude AP SSIDs */
   const scanNetworks = useCallback(async () => {
     if (!creds || !iface || scanning) return;
 
     setScanning(true);
-    const timeoutId = setTimeout(() => setScanning(false), 10000); // safety
+    const timeoutId = setTimeout(() => setScanning(false), 10000);
+	
+    //console.log('scanNetworks: detecting AP interfaces...');
+    let apSsids = [];
+    try {
+      const rawIfacesOut = await runPipeline([`/usr/sbin/iw dev | awk '/Interface/ {print $2}'`]);
+      //console.log('scanNetworks: raw interfaces output:', rawIfacesOut);
+      const allIfaces = rawIfacesOut
+        .trim()
+        .split('\n')
+        .map(l => l.replace(/^\s*Interface\s+/, '').trim())
+        .filter(Boolean);
+      //console.log('scanNetworks: parsed interfaces:', allIfaces);
+
+      const apIfaces = [];
+      for (const name of allIfaces) {
+        const infoOut = await runPipeline([`/usr/sbin/iw dev ${name} info`]);
+        if (infoOut.includes('type AP')) apIfaces.push(name);
+      }
+      //console.log('scanNetworks: detected AP interfaces:', apIfaces);
+
+      for (const ap of apIfaces) {
+        const infoOut = await runPipeline([`/usr/sbin/iw dev ${ap} info`]);
+        const m = infoOut.match(/^\s*ssid\s+(.+)$/m);
+        if (m) apSsids.push(m[1].trim());
+      }
+      //console.log('scanNetworks: AP SSIDs to exclude:', apSsids);
+    } catch (err) {
+      //console.warn('scanNetworks: AP detection error:', err);
+    }
+
+
 
     try {
+      //console.log('scanNetworks: scanning on iface:', iface);
       const scanOut = await runPipeline([
         `/sbin/wpa_cli -i ${iface} scan`,
         'sleep 2',
         `/sbin/wpa_cli -i ${iface} scan_results`,
       ]);
-      const lines = scanOut.trim().split('\n').slice(1);
+      //console.log('scanNetworks: raw scan output:', scanOut);
+      const lines = scanOut.trim().split('\n');
+      const dataLines = lines.slice(1);
 
-      /* SSID → best signal map */
       const bySsid = new Map();
-      lines.forEach((line) => {
+      dataLines.forEach(line => {
         const cols = line.split('\t');
-        const ssid   = (cols[4] || '').trim();
+        const ssid = (cols[4] || '').trim();
         const signal = parseInt(cols[2], 10);
         if (!ssid) return;
         const key = ssid.toLowerCase();
         const prev = bySsid.get(key);
         if (!prev || signal > prev.signal) bySsid.set(key, { ssid, signal });
       });
+      //console.log('scanNetworks: bySsid keys:', Array.from(bySsid.keys()));
 
-      /* filter out networks we already know */
-      const knownSsids = new Set(knownRef.current.map(n => n.ssid.toLowerCase()));
-      const filtered   = Array.from(bySsid.values())
-                              .filter(n => !knownSsids.has(n.ssid.toLowerCase()))
-                              .sort((a,b) => b.signal - a.signal);
+      const knownSet = new Set(knownRef.current.map(n => n.ssid.toLowerCase()));
+      //console.log('scanNetworks: knownSsids:', Array.from(knownSet));
 
-      /* update state */
+      let candidates = Array.from(bySsid.values()).filter(n => !knownSet.has(n.ssid.toLowerCase()));
+      //console.log('scanNetworks: candidates before AP filter:', candidates.map(n => n.ssid));
+
+      const apSet = new Set(apSsids.map(s => s.toLowerCase()));
+      //console.log('scanNetworks: apSsidsLower:', Array.from(apSet));
+
+      // ★ SORT: by descending signal strength
+      const filtered = candidates
+        .filter(n => !apSet.has(n.ssid.toLowerCase()))
+        .sort((a, b) => b.signal - a.signal);
+      //console.log('scanNetworks: filtered after AP filter:', filtered.map(n => n.ssid));
+
       setScan(filtered);
       setKnown(prev => prev.map(n => ({
         ...n,
         signal: bySsid.get(n.ssid.toLowerCase())?.signal,
       })));
-
-      if (!initialScanDone) setInitialScanDone(true);           // ★ ADDED
+      if (!initialScanDone) setInitialScanDone(true);
     } catch (err) {
       console.warn('scanNetworks error:', err);
     } finally {
@@ -158,19 +185,15 @@ export function useNetworks(piId, host) {
     }
   }, [creds, iface, scanning, runPipeline, initialScanDone]);
 
-  /* 5) Bootstrap – run ONCE when creds + iface ready */
+  /* 5) Bootstrap on first load */
   useEffect(() => {
-    if (!creds || !iface || initialLoadStarted.current) return; // ★ ADDED guard
-    initialLoadStarted.current = true;                          // ★ ADDED
-
-    (async () => {
-      await refresh();      // current + known
-      await scanNetworks(); // nearby
-    })();
+    if (!creds || !iface || initialLoadStarted.current) return;
+    initialLoadStarted.current = true;
+    (async () => { await refresh(); await scanNetworks(); })();
   }, [creds, iface, refresh, scanNetworks]);
 
-  /* 6) Connect / forget / connect-new helpers */
-  const connect = useCallback(async (id) => {
+  /* 6) Actions */
+  const connect = useCallback(async id => {
     if (!creds || !iface) return;
     await runPipeline([`/sbin/wpa_cli -i ${iface} select_network ${id}`]);
     await new Promise(r => setTimeout(r, 3000));
@@ -178,7 +201,7 @@ export function useNetworks(piId, host) {
     await scanNetworks();
   }, [creds, iface, runPipeline, refresh, scanNetworks]);
 
-  const forget = useCallback(async (id) => {
+  const forget = useCallback(async id => {
     if (!creds || !iface) return;
     await runPipeline([
       `/sbin/wpa_cli -i ${iface} remove_network ${id}`,
@@ -187,14 +210,14 @@ export function useNetworks(piId, host) {
     refresh();
   }, [creds, iface, runPipeline, refresh]);
 
-  const connectNew = useCallback(async (ssid, psk='') => {
+  const connectNew = useCallback(async (ssid, psk = '') => {
     if (!creds || !iface) return;
     try {
-      const netId = (await runSSH({
+      const newIdOut = await runSSH({
         ...creds,
         command: `/sbin/wpa_cli -i ${iface} add_network`,
-      })).trim();
-
+      });
+      const netId = newIdOut.trim();
       const cmds = [
         `/sbin/wpa_cli -i ${iface} set_network ${netId} ssid '"${ssid}"'`,
         psk
@@ -214,24 +237,6 @@ export function useNetworks(piId, host) {
   }, [creds, iface, runPipeline, refresh]);
 
   /* 7) Public API */
-  const initialLoading = !initialScanDone; // true until first scan finishes  // ★ ADDED
-
-  return {
-    /* flags */
-    initialLoading,  // ★ ADDED
-    scanning,
-
-    /* data */
-    creds,
-    curr,
-    known,
-    scan,
-
-    /* actions */
-    refresh,
-    scanNetworks,
-    connect,
-    forget,
-    connectNew,
-  };
+  const initialLoading = !initialScanDone;
+  return { initialLoading, scanning, creds, curr, known, scan, refresh, scanNetworks, connect, forget, connectNew };
 }
