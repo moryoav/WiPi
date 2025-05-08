@@ -207,9 +207,10 @@ export function useNetworks(piId, host) {
       `/sbin/wpa_cli -i ${iface} remove_network ${id}`,
       `/sbin/wpa_cli -i ${iface} save_config`,
     ]);
-    refresh();
-  }, [creds, iface, runPipeline, refresh]);
-
+    await refresh();
+    await scanNetworks();
+  }, [creds, iface, runPipeline, refresh, scanNetworks]);
+/*
   const connectNew = useCallback(async (ssid, psk = '') => {
     if (!creds || !iface) return;
     try {
@@ -227,6 +228,7 @@ export function useNetworks(piId, host) {
         `/sbin/wpa_cli -i ${iface} select_network ${netId}`,
         `/sbin/wpa_cli -i ${iface} save_config`,
       ];
+	  console.log(cmds);
       await runPipeline(cmds);
     } catch (err) {
       console.warn('connectNew error:', err);
@@ -235,6 +237,64 @@ export function useNetworks(piId, host) {
       setScan([]);
     }
   }, [creds, iface, runPipeline, refresh]);
+*/
+	const connectNew = useCallback(async (ssid, psk = '') => {
+	  if (!creds || !iface) return;
+
+	  try {
+		/* 1. create an empty network and capture its numeric id */
+		const newIdOut = await runSSH({
+		  ...creds,
+		  command: `/sbin/wpa_cli -i ${iface} add_network`,
+		});
+		const netId = newIdOut.trim();
+
+		/* 2. helper – proper quoting for ssid / psk */
+		const q = s => `'"${s}"'`;
+
+		/* 3. build the exact command list we want to run */
+		const cmds = [
+		  `/sbin/wpa_cli -i ${iface} set_network ${netId} ssid ${q(ssid)}`,
+		  psk
+			? `/sbin/wpa_cli -i ${iface} set_network ${netId} psk ${q(psk)}`
+			: `/sbin/wpa_cli -i ${iface} set_network ${netId} key_mgmt NONE`,
+		  `/sbin/wpa_cli -i ${iface} enable_network ${netId}`,
+		  `/sbin/wpa_cli -i ${iface} select_network ${netId}`,
+		  `/sbin/wpa_cli -i ${iface} save_config`,
+		];
+
+		const scriptPath    = `/tmp/connect_${netId}.sh`;
+		const scriptContent = cmds.join('\n') + '\n';
+		
+		/* 4. write the shell script onto the Pi */
+		await runSSH({
+		  ...creds,
+		  command: [
+			'bash -lc',                // run everything in one remote bash
+			`"cat > ${scriptPath} <<'EOS'"`,
+			scriptContent,             // all wpa_cli commands, one per line
+			'EOS',
+			`chmod +x ${scriptPath}`,
+		  ].join('\n'),
+		});
+		
+		/* 5. execute the script (leave it there for inspection) */
+		await runSSH({
+		  ...creds,
+		  command: `bash -lc "sudo ${scriptPath}"`,
+		});
+
+	  } catch (err) {
+		console.warn('connectNew error:', err);
+	  } finally {
+		/* refresh lists & clear transient scan candidates */
+		
+		//setScan([]);
+		await new Promise(r => setTimeout(r, 6000));
+		await refresh();
+		await scanNetworks();
+	  }
+	}, [creds, iface, refresh, scanNetworks]);
 
   /* 7) Public API */
   const initialLoading = !initialScanDone;
