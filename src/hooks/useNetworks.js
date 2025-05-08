@@ -242,6 +242,7 @@ export function useNetworks(piId, host) {
 	  if (!creds || !iface) return;
 
 	  try {
+		setScanning(true);
 		/* 1. create an empty network and capture its numeric id */
 		const newIdOut = await runSSH({
 		  ...creds,
@@ -267,6 +268,7 @@ export function useNetworks(piId, host) {
 		const scriptContent = cmds.join('\n') + '\n';
 		
 		/* 4. write the shell script onto the Pi */
+		
 		await runSSH({
 		  ...creds,
 		  command: [
@@ -290,7 +292,7 @@ export function useNetworks(piId, host) {
 		/* refresh lists & clear transient scan candidates */
 		
 		//setScan([]);
-		await new Promise(r => setTimeout(r, 6000));
+		await new Promise(r => setTimeout(r, 3000));
 		await refresh();
 		await scanNetworks();
 	  }

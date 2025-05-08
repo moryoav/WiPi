@@ -1,6 +1,6 @@
 // src/components/PiListScreen.view.js
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import PiDetails from '../components/PiDetails';
@@ -89,7 +90,7 @@ export function TravelMap({ history = [], current }) {
 }
 
 /* ─── Single Pi Card as its own component (to use hooks) ───────────── */
-function PiListItem({ item, isUp, sys, hist, curr, onSelect, onDelete, onEdit }) {
+function PiListItem({ item, isUp, sys, hist, curr, onSelect, onDelete, onEdit, refreshTick}) {
 
   const ramPct = sys?.usedMemory ?? null;
   const cpuPct = sys?.systemLoadPercentage ?? null;
@@ -166,7 +167,7 @@ function PiListItem({ item, isUp, sys, hist, curr, onSelect, onDelete, onEdit })
           {/* Pi details */}
           <View style={styles.separatorFull} />
           <View style={styles.detailsContainer}>
-            <PiDetails id={item.id} host={item.host} hostname={item.name} />
+            <PiDetails id={item.id} host={item.host} hostname={item.name} key={`${item.id}-${refreshTick}`}/>
           </View>
 
           {/* Travel history */}
@@ -197,6 +198,7 @@ export default function PiListScreenView({
   onDelete,
   onAdd,
   onEdit,
+  onRefresh,
 }) {
   const renderItem = ({ item }) => {
     const isUp = reachable[item.id] === true;
@@ -211,12 +213,24 @@ export default function PiListScreenView({
         sys={sys}
         hist={hist}
         curr={curr}
+		refreshTick={refreshTick}
         onSelect={onSelect}
         onDelete={onDelete}
         onEdit={onEdit}
       />
     );
   };
+
+  
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const handlePullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await onRefresh();           // re-use existing logic
+	setRefreshTick(t => t + 1);  
+    setRefreshing(false);
+  }, [onRefresh]);
 
   return (
     <View style={styles.container}>
@@ -227,6 +241,13 @@ export default function PiListScreenView({
         contentContainerStyle={[{ flexGrow: 1 }, !pis.length && { justifyContent: 'center' }]}
         ListEmptyComponent={<Text style={styles.empty}>No Pis yet. Tap + to add one.</Text>}
         showsVerticalScrollIndicator={false}
+	    refreshControl={                 /* ⬅️ pull-to-refresh hook-up */
+			<RefreshControl
+			refreshing={refreshing}
+			onRefresh={handlePullRefresh}
+			tintColor="#22c55e"          /* optional spinner colour */
+			/>
+		}
       />
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}

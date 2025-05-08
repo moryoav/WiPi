@@ -35,9 +35,26 @@ export function usePis(pollIntervalMs = 3000) {
   const timerRef = useRef(null);
 
   /* ---------- Load / refresh Pi list ---------- */
+  /* ---------- Load / refresh Pi list + reachability ---------- */
   const refresh = useCallback(async () => {
+    // ① reload the list stored on the device
     const list = await loadPis();
     setPis(list);
+
+    // ② probe each Pi right away so UI updates instantly
+    const results = await Promise.all(
+      list.map(async (pi) => {
+        const ok = await checkDashboard(pi.host);
+        return { id: pi.id, ok };
+      })
+    );
+    setReachable((prev) => {
+      const next = { ...prev };
+      results.forEach(({ id, ok }) => {
+        next[id] = ok;
+      });
+      return next;
+    });
   }, []);
 
   useEffect(() => {

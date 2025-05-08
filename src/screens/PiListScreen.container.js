@@ -84,6 +84,7 @@ export default function PiListScreenContainer({ navigation }) {
       systemInfo={systemInfo}
       locHistory={locHistory}
       curLoc={currentLoc}
+	  onRefresh={refresh}
       onDelete={handleDelete}
       onSelect={handleSelect}
       onAdd={handleAdd}

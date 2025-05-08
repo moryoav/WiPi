@@ -11,7 +11,11 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  MaterialIcons, // ← added for eye-toggle icon
+} from '@expo/vector-icons';
 import { runSpeedTest } from '../lib/speedtestHelper';
 
 export default function PiDashboardScreenView({
@@ -35,10 +39,12 @@ export default function PiDashboardScreenView({
   hideModal,
   onChangeModalPsk,
 }) {
-  /* ───────── speed-test state & handler ───────── */
-  const [speedLoading, setSpeedLoading] = useState(false);
-  const [speedResults, setSpeedResults] = useState(null);
+  /* ───────── component state ───────── */
+  const [speedLoading, setSpeedLoading]  = useState(false);
+  const [speedResults, setSpeedResults]  = useState(null);
+  const [showPassword, setShowPassword]  = useState(false);   // ← eye-toggle state
 
+  /* ───────── speed-test handler ───────── */
   const handleSpeedTest = async () => {
     setSpeedLoading(true);
     try {
@@ -94,8 +100,11 @@ export default function PiDashboardScreenView({
                 : <Text style={styles.linkBlue}>Connect</Text>}
             </Pressable>
           )}
-          <Pressable hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.6 }}
-                     onPress={() => onForget(item.id)}>
+          <Pressable
+            hitSlop={10}
+            style={({ pressed }) => pressed && { opacity: 0.6 }}
+            onPress={() => onForget(item.id)}
+          >
             <MaterialCommunityIcons name="trash-can-outline" size={24} color="#f44336" />
           </Pressable>
         </View>
@@ -122,19 +131,19 @@ export default function PiDashboardScreenView({
   /* ───────── dynamic section list ───────── */
   const sections = [];
   if (known.length > 0)
-    sections.push({ title: 'Known networks',   data: known, renderItem: KnownItem });
+    sections.push({ title: 'Known networks', data: known, renderItem: KnownItem });
   if (scan.length > 0)
-    sections.push({ title: 'Nearby networks', data: scan,  renderItem: ScanItem });
+    sections.push({ title: 'Nearby networks', data: scan, renderItem: ScanItem });
 
   return (
     <View style={styles.container}>
-      {/* ── Current connection (only if card exists) ── */}
+      {/* ── Current connection ── */}
       {curr?.ssid && (
         <View style={styles.header}>
           <Text style={styles.sectionHeader}>Current connection</Text>
 
           <View style={[styles.card, styles.cardCurrentBorder, styles.cardColumn]}>
-            {/* original row, unchanged layout */}
+            {/* first row */}
             <View style={styles.currentRow}>
               <MaterialCommunityIcons
                 name="wifi"
@@ -148,21 +157,22 @@ export default function PiDashboardScreenView({
                 onPress={handleSpeedTest}
                 disabled={speedLoading}
               >
-                {speedLoading
-                  ? <ActivityIndicator size="small" color="#0077ff" />
-                  : <MaterialCommunityIcons name="speedometer" size={32} color="#0077ff" />
-                }
+                {speedLoading ? (
+                  <ActivityIndicator size="small" color="#0077ff" />
+                ) : (
+                  <MaterialCommunityIcons name="speedometer" size={32} color="#0077ff" />
+                )}
               </Pressable>
             </View>
 
-            {/* new: speed test results + gauge */}
+            {/* speed test results */}
             {speedResults && (() => {
-              const rawMax = Math.ceil((speedResults.download * 1.1) / 10) * 10;
-              const gaugeMax = Math.max(rawMax, 25);
-              const seg1 = 4;
-              const seg2 = 4;
-              const seg3 = 17;             // 25 − (4+4)
-              const seg4 = gaugeMax - 25;  // may be zero
+              const rawMax           = Math.ceil((speedResults.download * 1.1) / 10) * 10;
+              const gaugeMax         = Math.max(rawMax, 25);
+              const seg1             = 4;
+              const seg2             = 4;
+              const seg3             = 17;             // 25 − (4+4)
+              const seg4             = gaugeMax - 25;  // may be zero
               const indicatorPercent = (speedResults.download / gaugeMax) * 100;
 
               return (
@@ -208,42 +218,16 @@ export default function PiDashboardScreenView({
 
                   <View style={styles.speedGaugeContainer}>
                     <View style={styles.speedGaugeBar}>
-                      {/* 0–4 Mbps (red) */}
-                      <View
-                        style={[
-                          styles.speedGaugeSegment,
-                          { flex: seg1, backgroundColor: '#f44336' },
-                        ]}
-                      />
-                      {/* 4–8 Mbps (orange) */}
-                      <View
-                        style={[
-                          styles.speedGaugeSegment,
-                          { flex: seg2, backgroundColor: '#ff9800' },
-                        ]}
-                      />
-                      {/* 8–25 Mbps (yellow) */}
-                      <View
-                        style={[
-                          styles.speedGaugeSegment,
-                          { flex: seg3, backgroundColor: '#ffeb3b' },
-                        ]}
-                      />
-                      {/* 25+ Mbps (green) */}
+                      <View style={[styles.speedGaugeSegment, { flex: seg1, backgroundColor: '#f44336' }]} />
+                      <View style={[styles.speedGaugeSegment, { flex: seg2, backgroundColor: '#ff9800' }]} />
+                      <View style={[styles.speedGaugeSegment, { flex: seg3, backgroundColor: '#ffeb3b' }]} />
                       {seg4 > 0 && (
-                        <View
-                          style={[
-                            styles.speedGaugeSegment,
-                            { flex: seg4, backgroundColor: '#4caf50' },
-                          ]}
-                        />
+                        <View style={[styles.speedGaugeSegment, { flex: seg4, backgroundColor: '#4caf50' }]} />
                       )}
                       <View
                         style={[
                           styles.speedGaugeIndicator,
-                          {
-                            left: `${indicatorPercent}%`,
-                          },
+                          { left: `${indicatorPercent}%` },
                         ]}
                       />
                     </View>
@@ -255,7 +239,7 @@ export default function PiDashboardScreenView({
         </View>
       )}
 
-      {/* ── SectionList (won't show sub-headers unless arrays have items) ── */}
+      {/* ── Section list ── */}
       {sections.length > 0 && (
         <SectionList
           sections={sections}
@@ -270,6 +254,8 @@ export default function PiDashboardScreenView({
               : <ScanItem  item={item} />
           }
           contentContainerStyle={{ paddingBottom: 100 }}
+		  onRefresh={onScan}           
+		  refreshing={scanning}
         />
       )}
 
@@ -283,14 +269,9 @@ export default function PiDashboardScreenView({
           : <Ionicons name="refresh" size={28} color="#fff" />}
       </Pressable>
 
-      {/* ── First-load overlay spinner ── */}
-      {initialLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#0077ff" />
-        </View>
-      )}
 
-      {/* ── Connect-new modal (unchanged) ── */}
+
+      {/* ── Connect-new modal ── */}
       <Modal
         visible={modalVisible}
         transparent
@@ -300,17 +281,45 @@ export default function PiDashboardScreenView({
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Connect to "{modalSsid}"</Text>
-            <TextInput
-              placeholder="Password (blank if open)"
-              secureTextEntry
-              value={modalPsk}
-              onChangeText={onChangeModalPsk}
-              style={styles.modalInput}
-            />
+
+            {/* password field + eye icon */}
+            <View style={styles.passwordRow}>
+              <TextInput
+                placeholder="Password (blank if open)"
+                secureTextEntry={!showPassword}
+                value={modalPsk}
+                onChangeText={onChangeModalPsk}
+                style={[
+                  styles.modalInput,
+                  {
+                    flex: 1,
+                    marginBottom: 0,
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    borderRightWidth: 0,
+                  },
+                ]}
+              />
+              <Pressable
+                onPress={() => setShowPassword((prev) => !prev)}
+                style={({ pressed }) => [styles.eyeBtn, pressed && { opacity: 0.6 }]}
+                hitSlop={8}
+              >
+                <MaterialIcons
+                  name={showPassword ? 'visibility-off' : 'visibility'}
+                  size={24}
+                  color="#666"
+                />
+              </Pressable>
+            </View>
+
             <View style={styles.modalBtnRow}>
               <Pressable
                 style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                onPress={async () => { await onConnectNew(modalSsid, modalPsk); hideModal(); }}
+                onPress={async () => {
+                  hideModal();
+                  onConnectNew(modalSsid, modalPsk);
+                }}
               >
                 <Text style={styles.primaryBtnText}>Connect</Text>
               </Pressable>
@@ -331,13 +340,12 @@ export default function PiDashboardScreenView({
 const CARD_RADIUS = 12;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
+  /* ───── container & headers ───── */
+  container:        { flex: 1, backgroundColor: '#f4f6f8' },
+  header:           { paddingTop: 20, paddingBottom: 0 },
+  sectionHeader:    { paddingHorizontal: 20, paddingTop: 12, fontSize: 13, color: '#888' },
 
-  /* current connection */
-  header: { paddingTop: 20, paddingBottom: 0 },
-  sectionHeader: { paddingHorizontal: 20, paddingTop: 12, fontSize: 13, color: '#888' },
-
-  /* card */
+  /* ───── universal card ───── */
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,16 +355,16 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     padding: 14,
     elevation: 1,
-    shadowColor: '#000', shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 }, shadowRadius: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
   cardPressed:      { transform: [{ scale: 0.98 }] },
   cardCurrentBorder:{ borderLeftWidth: 4, borderLeftColor: '#4caf50' },
-
-  /* override for current-connection card to allow two rows */
   cardColumn:       { flexDirection: 'column', alignItems: 'flex-start' },
 
-  /* wrapper row inside current-connection card */
+  /* ───── rows inside cards ───── */
   currentRow:       { flexDirection: 'row', alignItems: 'center', width: '100%' },
   rowIcon:          { marginRight: 10 },
   rowTitle:         { fontSize: 16, fontWeight: '500', color: '#212121' },
@@ -365,58 +373,62 @@ const styles = StyleSheet.create({
   speedBtn:         { marginLeft: 'auto', padding: 8 },
   speedBtnPressed:  { opacity: 0.6 },
 
-  /* speed results row */
-  speedRow:         { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, width: '100%' },
-  speedCol:         { flex: 1, alignItems: 'center' },
-  speedIcon:        { marginBottom: 4 },
-  speedValue:       { fontSize: 16, fontWeight: '600', color: '#212121' },
-  speedLabel:       { fontSize: 12, color: '#666', marginTop: 2 },
+  /* signal column */
+  signalCol: { width: 50, alignItems: 'center', marginRight: 12 },
+  signalDb:  { marginTop: 4, fontSize: 12, color: '#666' },
 
-  /* speed gauge styles */
-  speedGaugeContainer: {
-    width: '100%',
-    marginTop: 8,
-  },
+  /* row right actions */
+  infoCol:   { flex: 1 },
+  rowRight:  { flexDirection: 'row', alignItems: 'center' },
+  linkBtn:   { marginRight: 12 },
+  linkBtnPressed:{ opacity: 0.6 },
+  linkBlue:  { color: '#0077ff', fontWeight: '600' },
+
+  /* speed results */
+  speedRow:  { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, width: '100%' },
+  speedCol:  { flex: 1, alignItems: 'center' },
+  speedIcon: { marginBottom: 4 },
+  speedValue:{ fontSize: 16, fontWeight: '600', color: '#212121' },
+  speedLabel:{ fontSize: 12, color: '#666', marginTop: 2 },
+
+  /* speed gauge */
+  speedGaugeContainer: { width: '100%', marginTop: 8 },
   speedGaugeBar: {
     flexDirection: 'row',
     width: '100%',
     height: 8,
     borderRadius: 4,
-    
     position: 'relative',
   },
-  speedGaugeSegment: {
-    height: '100%',
-  },
-  speedGaugeIndicator: {
+  speedGaugeSegment:  { height: '100%' },
+  speedGaugeIndicator:{
     position: 'absolute',
     width: 3,
-    height: 13,        // make it protrude slightly
+    height: 13,
     backgroundColor: '#212121',
-    top: -3,            // lift above the bar
+    top: -3,
   },
 
-  /* signal column */
-  signalCol: { width: 50, alignItems: 'center', marginRight: 12 },
-  signalDb:  { marginTop: 4, fontSize: 12, color: '#666' },
-
-  /* row content */
-  infoCol:   { flex: 1 },
-  rowRight:  { flexDirection: 'row', alignItems: 'center' },
-  linkBtn:   { marginRight: 12 }, linkBtnPressed:{ opacity: 0.6 },
-  linkBlue:  { color: '#0077ff', fontWeight: '600' },
-
-  /* FAB */
+  /* ───── FAB ───── */
   fab: {
-    position: 'absolute', bottom: 24, right: 24,
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#22c55e',
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 6, shadowColor: '#000', shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
   fabPressed: { opacity: 0.8, transform: [{ scale: 0.96 }] },
 
-  /* first-scan overlay */
+  /* ───── first-scan overlay ───── */
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -424,19 +436,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
 
-  /* modal */
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  modalCard:    { width: '85%', backgroundColor: '#fff', borderRadius: CARD_RADIUS, padding: 20 },
-  modalTitle:   { fontSize: 16, fontWeight: '600', marginBottom: 14 },
-  modalInput:   {
-    borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 20,
-    backgroundColor: '#fafafa', fontSize: 15,
+  /* ───── modal ───── */
+  modalOverlay:{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  modalCard:   { width: '85%', backgroundColor: '#fff', borderRadius: CARD_RADIUS, padding: 20 },
+  modalTitle:  { fontSize: 16, fontWeight: '600', marginBottom: 14 },
+
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#fafafa',
+    fontSize: 15,
+    marginBottom: 20, // overridden when in passwordRow
   },
-  modalBtnRow:  { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  primaryBtn:   { backgroundColor: '#0077ff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 },
+
+  passwordRow: {                    /* ← new */
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  eyeBtn: {                         /* ← new */
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fafafa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderLeftWidth: 0,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+  },
+
+  modalBtnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  primaryBtn:  { backgroundColor: '#0077ff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 },
   primaryBtnPressed:{ opacity: 0.8 },
   primaryBtnText:{ color: '#fff', fontWeight: '600' },
-  secondaryBtn: { paddingVertical: 10, paddingHorizontal: 16 },
+  secondaryBtn:{ paddingVertical: 10, paddingHorizontal: 16 },
   secondaryBtnText:{ color: '#0077ff', fontWeight: '600' },
 });

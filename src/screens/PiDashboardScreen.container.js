@@ -49,7 +49,7 @@ export default function PiDashboardScreenContainer({ navigation, route }) {
       modalVisible={modalVisible}
       modalSsid={modalSsid}
       modalPsk={modalPsk}
-      onScan={scanNetworks}
+      onScan={() => { refresh(); scanNetworks(); }}
       onConnect={handleConnect}
       onForget={forget}
       onConnectNew={connectNew}
