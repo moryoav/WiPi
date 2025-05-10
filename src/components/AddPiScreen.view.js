@@ -11,8 +11,10 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
+  Linking,                  // ← add
+  Switch,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // eye / eye-off icons
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'; // eye + help icons
 
 /**
  * Modern-UI “Add Pi” form with SHOW-PASSWORD toggle + optional API Key
@@ -22,17 +24,24 @@ export default function AddPiScreenView({
   host,
   username,
   password,
-  apiKey,                       // ADD
+  apiKey,
+  allowGeo,
   saving,
   onChangeName,
   onChangeHost,
   onChangeUsername,
   onChangePassword,
-  onChangeApiKey,               // ADD
+  onChangeApiKey,
+  onToggleGeo,
   onSave,
 }) {
-  /* local state for eye toggle */
   const [showPassword, setShowPassword] = useState(false);
+
+  /* open docs / REST config in external browser */
+	const openRestApiConf = () => {
+	  const h = host.trim() || '10.3.141.1';   // fallback to default IP
+	  Linking.openURL(`http://${h}/restapi_conf`).catch(() => {});
+	};
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -96,15 +105,38 @@ export default function AddPiScreenView({
             </View>
           </View>
 
-          {/* NEW – optional API key */}
-          <Field                                           /* ADD block */
-            label="RaspAp API Key (optional)"
-            placeholder="Paste API Key…"
-            value={apiKey}
-            onChangeText={onChangeApiKey}
-            editable={!saving}
-            autoCapitalize="none"
-          />
+          {/* API Key row with help icon */}
+          <View style={styles.field}>
+            <Text style={styles.label}>RaspAP API Key (optional)</Text>
+            <View style={styles.apiRow}>
+              <TextInput
+                style={[styles.input, styles.apiInput]}
+                placeholder="Paste API Key…"
+                value={apiKey}
+                onChangeText={onChangeApiKey}
+                editable={!saving}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.helpBtn}
+                onPress={openRestApiConf}
+                disabled={saving}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MaterialCommunityIcons name="help-circle-outline" size={24} color="#0077ff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── NEW: Allow Geolocation switch ─────────────────── */}
+          <View style={[styles.field, styles.switchRow]}>
+            <Text style={styles.label}>Allow Geolocation</Text>
+            <Switch
+              value={allowGeo}
+              onValueChange={onToggleGeo}
+              disabled={saving}
+            />
+          </View>
 
           {/* Save button */}
           <TouchableOpacity
@@ -125,7 +157,7 @@ export default function AddPiScreenView({
   );
 }
 
-/* ───── Reusable labelled input ───── */
+/* reusable labelled input */
 function Field({ label, ...inputProps }) {
   return (
     <View style={styles.field}>
@@ -135,14 +167,12 @@ function Field({ label, ...inputProps }) {
   );
 }
 
-/* ───── Styles ───── */
+/* styles */
 const styles = StyleSheet.create({
-  /* layout */
   safeArea: { flex: 1, backgroundColor: '#ffffff' },
   flex: { flex: 1 },
   inner: { padding: 24 },
 
-  /* field */
   field: { marginBottom: 24 },
   label: { marginBottom: 6, fontWeight: '600', fontSize: 15, color: '#222' },
   input: {
@@ -160,6 +190,11 @@ const styles = StyleSheet.create({
   passwordInput: { flex: 1 },
   eyeBtn: { paddingHorizontal: 10 },
 
+  /* API Key row */
+  apiRow: { flexDirection: 'row', alignItems: 'center' },
+  apiInput: { flex: 1 },
+  helpBtn: { paddingHorizontal: 10 },
+
   /* button */
   saveBtn: {
     marginTop: 12,
@@ -175,4 +210,5 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.55 },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });

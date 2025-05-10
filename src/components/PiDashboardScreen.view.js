@@ -10,6 +10,7 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import {
   Ionicons,
@@ -41,6 +42,7 @@ export default function PiDashboardScreenView({
 }) {
   /* ───────── component state ───────── */
   const [speedLoading, setSpeedLoading]  = useState(false);
+  const [showSpeedHelp, setShowSpeedHelp] = useState(false);
   const [speedResults, setSpeedResults]  = useState(null);
   const [showPassword, setShowPassword]  = useState(false);   // ← eye-toggle state
 
@@ -51,7 +53,8 @@ export default function PiDashboardScreenView({
       const results = await runSpeedTest(host);
       setSpeedResults(results);
     } catch (e) {
-      console.error('SpeedTest error', e);
+      //console.error('SpeedTest error', e);
+	  setShowSpeedHelp(true); 
     } finally {
       setSpeedLoading(false);
     }
@@ -236,6 +239,43 @@ export default function PiDashboardScreenView({
               );
             })()}
           </View>
+		  
+			<Modal
+			  transparent
+			  visible={showSpeedHelp}
+			  animationType="fade"
+			  onRequestClose={() => setShowSpeedHelp(false)}
+			>
+			  <View style={styles.helpOverlay}>
+				<View style={styles.helpCard}>
+				  <Text style={styles.helpTitle}>Speed-test service not found</Text>
+				  <Text style={styles.helpBody}>
+					This feature needs the&nbsp;
+					<Text
+					  style={styles.helpLink}
+					  onPress={() =>
+						Linking.openURL(
+						  'https://docs.miguelndecarvalho.pt/projects/speedtest-exporter/'
+						)
+					  }
+					>
+					  speedtest-exporter
+					</Text>{' '}
+					package running on the Pi.
+				  </Text>
+
+				  <Pressable
+					style={styles.helpCloseBtn}
+					onPress={() => setShowSpeedHelp(false)}
+				  >
+					<Text style={styles.helpCloseTxt}>Got it</Text>
+				  </Pressable>
+				</View>
+			  </View>
+			</Modal>
+		  
+		  
+		  
         </View>
       )}
 
@@ -474,4 +514,29 @@ const styles = StyleSheet.create({
   primaryBtnText:{ color: '#fff', fontWeight: '600' },
   secondaryBtn:{ paddingVertical: 10, paddingHorizontal: 16 },
   secondaryBtnText:{ color: '#0077ff', fontWeight: '600' },
+  
+	helpOverlay: {
+	  flex: 1,
+	  justifyContent: 'center',
+	  alignItems: 'center',
+	  backgroundColor: 'rgba(0,0,0,0.5)',
+	},
+	helpCard: {
+	  width: '80%',
+	  backgroundColor: '#fff',
+	  borderRadius: 12,
+	  padding: 20,
+	  elevation: 4,
+	},
+	helpTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
+	helpBody: { fontSize: 14, marginBottom: 16 },
+	helpLink: { color: '#0077ff', textDecorationLine: 'underline' },
+	helpCloseBtn: {
+	  alignSelf: 'flex-end',
+	  paddingVertical: 6,
+	  paddingHorizontal: 12,
+	},
+	helpCloseTxt: { color: '#0077ff', fontWeight: '600' },
+  
+  
 });

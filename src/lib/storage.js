@@ -8,6 +8,14 @@ const PIS_KEY = 'PI_LIST';                               // list of Pi metadata
 const credKey = (id, field) => `pi_${id}_${field}`;      // username|password|apikey
 const locKey  = (id)        => `pi_${id}_locations`;     // travel history array
 
+const EPS = 0.5;                       // 50km threshold
+
+function sameSpot(a, b) {
+  return (
+    Math.abs(a.lat - b.lat) < EPS &&
+    Math.abs(a.lng - b.lng) < EPS
+  );
+}
 /* ─── credentials ─── */
 export async function savePiCreds(id, user, pass, apiKey = '') {
   await SecureStore.setItemAsync(credKey(id, 'username'), user);
@@ -24,17 +32,6 @@ export async function deletePiCreds(id) {
   await SecureStore.deleteItemAsync(credKey(id, 'username'));
   await SecureStore.deleteItemAsync(credKey(id, 'password'));
   await SecureStore.deleteItemAsync(credKey(id, 'apikey'));
-}
-
-/* ─── travel history ─── */
-export async function getPiLocations(id) {
-  const json = await AsyncStorage.getItem(locKey(id));
-  return json ? JSON.parse(json) : [];
-}
-export async function addPiLocation(id, locObj) {
-  const list = await getPiLocations(id);
-  list.push(locObj);
-  await AsyncStorage.setItem(locKey(id), JSON.stringify(list));
 }
 
 /* ─── Pi list CRUD ─── */
